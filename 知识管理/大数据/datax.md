@@ -1,0 +1,3 @@
+datax报错：找不到reader和writer
+
+[(62条消息) 解决datax运行job案例时报错“位置信息错误，您提供的配置文件[datax/plugin/reader/._hdfsreader/plugin.json\]不存在. 请检查您的配置文件.”_卑微仓鼠的博客-CSDN博客_datax 获取作业配置信息失败](https://blog.csdn.net/qq_37975951/article/details/123114116?ops_request_misc=%7B%22request%5Fid%22%3A%22164627978016780255293757%22%2C%22scm%22%3A%2220140713.130102334.pc%5Fall.%22%7D&request_id=164627978016780255293757&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~first_rank_ecpm_v1~rank_v31_ecpm-1-123114116.pc_search_insert_ulrmf&utm_term=plugin%2Freader%2F._drdsreader%2Fplugin.json不存在&spm=1018.2226.3001.4187)
