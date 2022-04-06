@@ -815,11 +815,179 @@ DataStream<Turple2<String,Double>> minTempPerWindowStream = dataStream
 
 ### 6.1.4 时间语义和watermark
 
+![image-20220321205245675](flink二刷.assets/image-20220321205245675-16478671666652.png)
+
+##  6.2时间语义
+
+### 6.2.1什么是水位线
+
+​    在Flink中，用来衡量事件时间（Event Time）进展的标记，就被称作水位线（WaterMark）。
+
+​    具体实现上，水位线可以看做一条特殊的数据记录，它是掺入到数据流中的一个标记点，主要内容就是一个时间戳，用来指示当前的事件时间。而它插入流中的位置，就应该是在某个数据到来之后；这样就可以在这个数据中提取时间戳，作为当前水位线的时间戳了。
+
+![image-20220321210106436](flink二刷.assets/image-20220321210106436-16478676675203.png)
+
+### 6.2.2 水位线生成策略(Watermark Strategies)
+
+在Flink的DataStream API中，有一个单独用于生成水位线的方法： assignTimestampsAndWatermarks()，它主要用来为流中的数据分配时间戳，并生成水位线来指示事件时间。
+
+```java
+public SingleOutputStreamOperator<T> assignTimestampAndWatermarks(WatermarkStrategy<T> watermarkStrategy)
+```
+
+具体使用时，直接用DataStream调用该方法即可，与普通的transform方法完全一样。
+
+```java
+DataStream<Event> stream = env.addSource(new ClinkSource());
+DataStream<Event> withTimestampsAndWatermarks = stream.assignTimestampsAndWatermarks(<watermark strategy>);
+```
+
+.assignTimestampsAndWatermarks()方法需要传入一个WatermarkStrategy作为参数，这就是所谓的“水位线生成策略”。WaterMarkStrategy中包含了一个“时间戳分配器”TimestampAssigner和一个“水位线生成器”WatermarkGenerator。
+
+```java
+public interface WatermarkStrategy<T> extends TimestampAssignerSupplier<T>,WatermarkGeneratorSupplier<T>{
+    
+}
+```
+
+
+
+该类中有两种重要的方法：
+
+
+
+```java
+//设置watermark的记录时间
+env.getConfig().setAutoWatermarkInterval(100);//100ms
+```
+
+
+
+案例代码：
+
+```java
+//有序流的watermark生成
+.assignTimestampAndWatermarks(WatermarkStrategy.<Event>forMonotonousTimes).withTImestampAssigner(new SerializableTimestampAssigner<Event>){
+    @Override
+    public long extractTimestamp(Event element,long recordTimestamp){
+        return element.timestamp;
+    }
+}
+
+//乱序流的watermark生成
+.assignTimestampsAndWatermarks(WatermarkStrategy.forBoundedOutOfOrderness(Duration.ofSeconds(2)))
+    .withTImestampAssigner(new SerializableTimestampAssigner<Event>){
+    @Override
+    public long extractTimestamp(Event element,long recordTimestamp){
+        return element.timestamp;
+    }
+```
 
 
 
 
 
+### 6.2.3窗口的理解
+
+![image-20220322104814381](flink二刷.assets/image-20220322104814381-16479173037944.png)
+
+
+
+# 7、状态编程
+
+## 7.1状态的概念
+
+### 有状态算子
+
+![image-20220321193805474](flink二刷.assets/image-20220321193805474-16478626866561.png)
+
+> 注意：Keyed State必须基于KeyedStream，否则会报错。
+
+```java
+public interface ValueState<T> extends State{
+    //获取值得方法
+    T value() throws IOException;
+    //更新值得方法
+    void update(T value) throws IOException;
+}
+```
+
+
+
+在写状态之前，为了让运行时上下文清楚到底是哪个状态，我们还需要创建一个“状态描述器”(StateDescriptor)来提供状态的基本信息。
+
+```java
+public ValueStateDescriptor(String name,Class<T> typeClass){
+    super(name,typeClass,null);
+}
+```
+
+几种状态
+
+**ValueState**
+
+**ListState**
+
+```java
+get()；//获取一个
+update(); //更新
+add();//添加一个
+addAll();//添加所有
+```
+
+**MapState**
+
+```java
+MapState<UK,UV>
+get(key);查询
+entries();查询所有map值
+keys();查询所有的key
+values(); 查询所有的value
+```
+
+**ReducingState**
+
+**AggregatingState**
+
+
+
+ **代码案例**
+
+```java
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+env.setParallelism(1);
+
+SingleOutputStreamOperator<Event> stream = end.addSource(new ClickSource())
+    .assignTimeStampsAndWaters(WatermarkStrategy.<Event>forBoundedOutOfOrderness(Duration.ZERO))
+    .withTimestampAssigner(new SerializableTimestampAssigner<Event>(){
+        @Override
+        public long extractTimestamp(Event element,long recordTimestamp){
+            return element.timestamp;
+        }
+    });
+stream.keyBy(data -> data.user)
+    .flatMap(new MyFlatMap())
+    .print();
+env.execute();
+
+
+
+//实现自定义的FlapMapFunction,用于keyed State测试
+public state class MyFaltMap extends RichFlatMapFunction<Event,String>{
+    //定义状态
+    private Value<State> myValueState;
+    //
+    @Override
+    public void open(Configuration parameters) throws Exception{
+        myValueState = getRuntimeContext().getState(New ValueStateDescriptor<Event>("my-state",Event.class));
+    }
+}
+
+```
+
+
+
+104课讲解的process（）的状态编程。 与RichFunction极其相似
 
 
 
@@ -1453,7 +1621,7 @@ env.excute();
 >   ```java
 >   Table table = input.window([w:OverWindow] as "w")
 >       .select("a,b,sum over w,c.min over w");
->   
+>     
 >   ```
 >
 >   
